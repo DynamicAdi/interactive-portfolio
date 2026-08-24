@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #050505;
+    --surface: #0D0D0D;
+    --text-primary: #F2F2F2;
+    --text-secondary: #666666;
+    --accent: #FF3B00;
+  }
+
+  body {
+    background-color: #050505;
+    color: #F2F2F2;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    cursor: default;
+    overflow-x: hidden;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #050505;
+    border-left: 1px solid #1a1a1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #FF3B00;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ff5e2e;
+  }
+}
+
+.pixel-mono {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #666666;
+}
+
+.font-pixel {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.font-display {
+  font-family: 'Helvetica Neue', Helvetica, 'Syne', Arial, sans-serif;
+  letter-spacing: -0.04em;
+}
+
+.font-silkscreen {
+  font-family: 'Silkscreen', monospace;
+}
+
+/* Artistic Flair Iso Grid Background */
+.iso-grid {
+  background-image: 
+    linear-gradient(rgba(102, 102, 102, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 102, 102, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: rotateX(60deg) rotateZ(45deg) scale(2.5);
+  transform-origin: center center;
+}
+
+.text-orange-shadow {
+  color: #FF3B00;
+  text-shadow: 5px 5px 0px #220A00;
+}
+
+.text-white-shadow {
+  color: #F2F2F2;
+  text-shadow: 5px 5px 0px #1A1A1A;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: #FF3B00;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.pixel-box {
+  border: 1px solid #666666;
+  padding: 4px 8px;
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  background: rgba(5, 5, 5, 0.7);
+  transition: all 0.2s ease;
+}
+
+.pixel-box:hover {
+  border-color: #FF3B00;
+  color: #FF3B00;
+}
+
+.manifesto-stamp {
+  transform: rotate(-90deg);
+  transform-origin: left top;
+}
+
+/* Swiss Grid Background */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+.bg-grid-isometric {
+  background-size: 60px 60px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 59, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 59, 0, 0.06) 1px, transparent 1px);
+}
+
+.bg-dot-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* CRT Scanline Effect */
+.scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.02),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.02)
+  );
+  background-size: 100% 3px, 6px 100%;
+  pointer-events: none;
+}
+
+/* Sharp Technical Borders */
+.border-technical {
+  border: 1px solid #1F1F1F;
+}
+
+.border-technical-active {
+  border: 1px solid #FF3B00;
+}
+
+/* Glitch keyframe effect */
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+.animate-glitch {
+  animation: glitch 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+}
+
+/* Noise overlay */
+.noise-bg {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
