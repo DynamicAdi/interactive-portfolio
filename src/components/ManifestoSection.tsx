@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { sound } from '../utils/audio';
 import { CursorState } from '../types';
 
@@ -6,29 +6,187 @@ interface ManifestoProps {
   setCursorState: (state: CursorState) => void;
 }
 
+const SCRAMBLE_CHARS = '!<>-_\\/[]{}=+*^?#01';
+const randomGlyph = () => SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+
+interface GlyphProps {
+  char: string;
+  revealDelay: number;
+  inView: boolean;
+  glitchTick: number;
+  className?: string;
+  onHover?: () => void;
+}
+
+/** A single animated character: scrambles through random glyphs, then settles. */
+const Glyph: React.FC<GlyphProps> = ({
+  char,
+  revealDelay,
+  inView,
+  glitchTick,
+  className,
+  onHover,
+}) => {
+  // Detect normal spaces, non-breaking spaces, tabs, newlines, etc.
+  const isSpace = /^\s$/.test(char);
+
+  // Preserve whitespace visually
+  const displayChar = isSpace ? '\u00A0' : char;
+
+  const [display, setDisplay] = useState(displayChar);
+  const [revealed, setRevealed] = useState(isSpace);
+
+  const intervalRef = useRef<number | null>(null);
+
+  const timeoutRef = useRef<number | null>(null);
+
+  const initialTimeoutRef =
+    useRef<number | null>(null);
+
+  const scramble = useCallback(
+    (durationMs: number, onDone?: () => void) => {
+      if (isSpace) return;
+
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
+      }
+
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+
+      intervalRef.current = window.setInterval(() => {
+        setDisplay(randomGlyph());
+      }, 40);
+
+      timeoutRef.current = window.setTimeout(() => {
+        if (intervalRef.current) {
+          window.clearInterval(intervalRef.current);
+        }
+
+        setDisplay(char);
+
+        onDone?.();
+      }, durationMs);
+    },
+    [char, isSpace]
+  );
+
+  // Decode-in reveal
+  useEffect(() => {
+    if (isSpace || !inView || revealed) return;
+
+    setDisplay(randomGlyph());
+
+    initialTimeoutRef.current = window.setTimeout(() => {
+      scramble(200, () => {
+        setRevealed(true);
+      });
+    }, revealDelay);
+
+    return () => {
+      if (initialTimeoutRef.current) {
+        window.clearTimeout(initialTimeoutRef.current);
+      }
+    };
+  }, [inView, isSpace, revealed, revealDelay, scramble]);
+
+  // Scroll glitch effect
+  useEffect(() => {
+    if (glitchTick === 0 || !revealed || isSpace) return;
+
+    if (Math.random() > 0.3) return;
+
+    scramble(150);
+  }, [glitchTick, revealed, isSpace, scramble]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
+      }
+
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+
+      if (initialTimeoutRef.current) {
+        window.clearTimeout(initialTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <span
+      className={`${className ?? ''} ${isSpace ? 'inline-block' : ''}`}
+      onMouseEnter={() => {
+        if (isSpace) return;
+
+        onHover?.();
+
+        scramble(240);
+      }}
+    >
+      {isSpace ? '\u00A0' : display}
+    </span>
+  );
+};
+
 export const ManifestoSection: React.FC<ManifestoProps> = ({ setCursorState }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollVelocity, setScrollVelocity] = useState(0);
-  const [hoveredChar, setHoveredChar] = useState<string | null>(null);
+  const [inView, setInView] = useState(false);
+  const [glitchTick, setGlitchTick] = useState(0);
+  const [parallax, setParallax] = useState({ a: 0, b: 0 });
+
   const lastScrollY = useRef(0);
   const lastTime = useRef(Date.now());
+  const lastGlitch = useRef(0);
+  const ticking = useRef(false);
 
+  // Trigger the decode-in reveal once the section is on screen
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.25 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Subtle parallax drift + fast-scroll glitch trigger (replaces the old skew)
   useEffect(() => {
     const handleScroll = () => {
-      const now = Date.now();
-      const currentScrollY = window.scrollY;
-      const deltaY = currentScrollY - lastScrollY.current;
-      const deltaTime = Math.max(1, now - lastTime.current);
-      const velocity = deltaY / deltaTime;
+      if (ticking.current) return;
+      ticking.current = true;
+      requestAnimationFrame(() => {
+        const el = containerRef.current;
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const center = rect.top + rect.height / 2 - window.innerHeight / 2;
+          const progress = Math.max(-1, Math.min(1, center / (window.innerHeight * 0.8)));
+          setParallax({ a: progress * -14, b: progress * 10 });
+        }
 
-      setScrollVelocity(Math.min(15, Math.max(-15, velocity * 8)));
-      lastScrollY.current = currentScrollY;
-      lastTime.current = now;
+        const now = Date.now();
+        const currentY = window.scrollY;
+        const velocity = Math.abs((currentY - lastScrollY.current) / Math.max(1, now - lastTime.current));
+        lastScrollY.current = currentY;
+        lastTime.current = now;
 
-      // Dampen velocity back to 0
-      setTimeout(() => {
-        setScrollVelocity((prev) => prev * 0.5);
-      }, 50);
+        if (velocity > 1.1 && now - lastGlitch.current > 700) {
+          lastGlitch.current = now;
+          setGlitchTick((t) => t + 1);
+        }
+        ticking.current = false;
+      });
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -38,6 +196,56 @@ export const ManifestoSection: React.FC<ManifestoProps> = ({ setCursorState }) =
   const line1 = "I DON'T JUST WRITE CODE.";
   const line2 = "I BUILD DIGITAL EXPERIENCES.";
 
+const renderLine = (
+  text: string,
+  baseClass: string,
+  onHoverSound?: () => void,
+  wordClass?: (word: string) => string
+) => {
+  let flatIndex = -1;
+
+  const words = text.split(' ');
+
+  return words.map((word, wordIdx) => (
+    <React.Fragment key={`${word}-${wordIdx}`}>
+      {/* WORD */}
+      <span
+        className={`inline-block whitespace-nowrap ${
+          wordClass ? wordClass(word) : ''
+        }`}
+      >
+        {word.split('').map((char, charIdx) => {
+          flatIndex += 1;
+
+          return (
+            <Glyph
+              key={`${char}-${charIdx}`}
+              char={char}
+              revealDelay={flatIndex * 28}
+              inView={inView}
+              glitchTick={glitchTick}
+              onHover={onHoverSound}
+              className={baseClass}
+            />
+          );
+        })}
+      </span>
+
+      {/* SPACE BETWEEN WORDS */}
+      {wordIdx < words.length - 1 && (
+        <Glyph
+          key={`space-${wordIdx}`}
+          char=" "
+          revealDelay={0}
+          inView={inView}
+          glitchTick={glitchTick}
+          onHover={onHoverSound}
+          className={baseClass}
+        />
+      )}
+    </React.Fragment>
+  ));
+};
   return (
     <section
       id="manifesto"
@@ -46,102 +254,51 @@ export const ManifestoSection: React.FC<ManifestoProps> = ({ setCursorState }) =
       onMouseEnter={() => setCursorState('EXPLORE')}
       onMouseLeave={() => setCursorState('DEFAULT')}
     >
-      {/* Background Subtle Coordinate Watermarks */}
-      <div className="absolute top-8 left-6 md:left-12 font-pixel text-xs text-[#333333] tracking-widest flex items-center space-x-3">
-        <span className="w-1.5 h-1.5 bg-[#FF3B00]" />
-        <span>SECTION 02 // MANIFESTO</span>
-        <span className="text-[#555]">// 002.CORE_CREED</span>
+      {/* Minimal label */}
+      <div className="absolute top-8 left-6 md:left-12 font-pixel text-[10px] text-[#444] tracking-[0.25em] flex items-center gap-2">
+        <span className="w-1 h-1 bg-[#FF3B00]" />
+        02 // MANIFESTO
       </div>
 
-      <div className="absolute top-8 right-6 md:right-12 font-pixel text-xs text-[#333333] hidden md:block">
-        [ VELOCITY SKEW: {scrollVelocity.toFixed(1)}° ]
-      </div>
-
-      {/* Centerpiece Massive Typography */}
-      <div className="max-w-7xl mx-auto w-full my-auto space-y-6 md:space-y-12">
-        {/* Line 1 */}
-        <div
-          className="transition-transform duration-100 ease-out"
-          style={{
-            transform: `skewX(${scrollVelocity}deg)`,
-          }}
-        >
-          <div className="font-display text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black uppercase tracking-tight text-[#666666] flex flex-wrap gap-x-3 md:gap-x-6">
-            {line1.split(' ').map((word, wordIdx) => (
-              <span key={wordIdx} className="inline-block whitespace-nowrap">
-                {word.split('').map((char, charIdx) => (
-                  <span
-                    key={charIdx}
-                    onMouseEnter={() => {
-                      setHoveredChar(char);
-                      sound.playTick(1200 + charIdx * 50);
-                    }}
-                    className="inline-block transition-colors duration-150 hover:text-[#F2F2F2] hover:-translate-y-1"
-                  >
-                    {char}
-                  </span>
-                ))}
-              </span>
-            ))}
+      {/* Centerpiece Typography */}
+      <div className="max-w-7xl mx-auto w-full my-auto space-y-8 md:space-y-14">
+        <div className="transition-transform duration-300 ease-out will-change-transform" style={{ transform: `translateY(${parallax.a}px)` }}>
+          <div className="font-display text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black uppercase tracking-tight text-[#5C5C5C] flex flex-wrap">
+            {renderLine(line1, 'inline-block transition-colors duration-150 hover:text-[#F2F2F2]', () => sound.playTick(1200))}
           </div>
         </div>
 
-        {/* Line 2 - High Accent Signal Line */}
-        <div
-          className="transition-transform duration-100 ease-out"
-          style={{
-            transform: `skewX(${-scrollVelocity * 1.2}deg)`,
-          }}
-        >
-          <div className="font-display text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black uppercase tracking-tight text-[#F2F2F2] flex flex-wrap gap-x-3 md:gap-x-6">
-            {line2.split(' ').map((word, wordIdx) => (
-              <span
-                key={wordIdx}
-                className={`inline-block whitespace-nowrap ${
-                  word === 'EXPERIENCES.' ? 'text-[#FF3B00] underline decoration-[#FF3B00]/40 decoration-4' : ''
-                }`}
-              >
-                {word.split('').map((char, charIdx) => (
-                  <span
-                    key={charIdx}
-                    onMouseEnter={() => {
-                      setHoveredChar(char);
-                      sound.playGlitch();
-                    }}
-                    className="inline-block transition-all duration-150 hover:text-[#FF3B00] hover:scale-110"
-                  >
-                    {char}
-                  </span>
-                ))}
-              </span>
-            ))}
+        <div className="transition-transform duration-300 ease-out will-change-transform" style={{ transform: `translateY(${parallax.b}px)` }}>
+          <div className="font-display text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black uppercase tracking-tight text-[#F2F2F2] flex flex-wrap">
+            {renderLine(
+              line2,
+              'inline-block transition-colors duration-150 hover:text-[#FF3B00]',
+              () => sound.playTick(),
+              (word) => (word === 'EXPERIENCES.' ? 'text-[#FF3B00]' : '')
+            )}
           </div>
         </div>
 
-        {/* Swiss Sub-Manifesto Editorial Block */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-12 border-t border-[#1F1F1F] font-pixel text-xs md:text-sm text-[#888888]">
+        {/* Sub-manifesto — fades/rises in once the section is in view */}
+        <div
+          className={`grid grid-cols-1 md:grid-cols-12 gap-6 pt-10 border-t border-[#1F1F1F] font-pixel text-xs md:text-sm transition-all duration-700 ${
+            inView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
+          }`}
+        >
           <div className="md:col-span-4 text-[#FF3B00] font-bold tracking-widest uppercase">
-            // PHILOSOPHY OF INTERACTIVE ARCHITECTURE
+            // PHILOSOPHY
           </div>
-          <div className="md:col-span-8 space-y-4 leading-relaxed text-[#B0B0B0]">
-            <p>
-              I believe in the friction between mathematical Swiss grid systems and raw, chaotic pixel energy. 
-              The web is not a static PDF—it is a living, kinetic dimension with gravity, inertia, and depth.
-            </p>
-            <p className="text-[#666666]">
-              Every shader compiled, every vector transformed, and every typography block laid down is calibrated 
-              to make the viewer pause and realize the digital space can evoke tangible emotion.
+          <div className="md:col-span-8 leading-relaxed text-[#989898]">
+            <p className='font-display md:text-2xl text-sm'>
+              I believe in the friction between mathematical grid systems and raw, chaotic pixel energy —
+              the web isn&apos;t a static page, it&apos;s a living, kinetic space.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Decorative Technical Grid Crosses */}
-      <div className="absolute bottom-6 left-6 md:left-12 font-pixel text-[10px] text-[#333]">
-        + + + + + + + + + + + + + + + + +
-      </div>
-      <div className="absolute bottom-6 right-6 md:right-12 font-pixel text-[10px] text-[#FF3B00]">
-        [ 02 / 12 — ARCHITECTURE ]
+      <div className="absolute bottom-8 right-6 md:right-12 font-pixel text-[10px] text-[#FF3B00] tracking-widest">
+        02 / 12
       </div>
     </section>
   );

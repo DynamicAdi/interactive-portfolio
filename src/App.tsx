@@ -7,15 +7,15 @@ import { SystemHUD } from './components/SystemHUD';
 import { HeroIsometricWorld } from './components/HeroIsometricWorld';
 import { ManifestoSection } from './components/ManifestoSection';
 import { DigitalIdentitySection } from './components/DigitalIdentitySection';
-import { MatrixGlobeSection } from './components/MatrixGlobeSection';
-import { SkillsSystemSection } from './components/SkillsSystemSection';
-import { SelectedWorkSection } from './components/SelectedWorkSection';
-import { HorizontalJourneySection } from './components/HorizontalJourneySection';
-import { CreativePlaygroundSection } from './components/CreativePlaygroundSection';
-import { PhilosophySection } from './components/PhilosophySection';
-import { ProcessSystemSection } from './components/ProcessSystemSection';
+import { Work } from './components/SelectedWorkSection';
 import { DigitalToolboxSection } from './components/DigitalToolboxSection';
-import { ContactJourneySection } from './components/ContactJourneySection';
+import { Philosophy } from './components/Philosophy';
+import { Process } from './components/Process';
+import { Contact } from './components/Contact';
+import { Now } from './components/Now';
+import SkillsGlobePage from './components/Skills/Main';
+import { SiGithub, SiX } from 'react-icons/si';
+import { FaLinkedinIn } from "react-icons/fa6";
 
 export default function App() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -87,16 +87,10 @@ export default function App() {
     <div className={`relative min-h-screen bg-[#050505] text-[#F2F2F2] selection:bg-[#FF3B00] selection:text-black overflow-x-hidden ${
       gridMode === 'isometric' ? 'bg-grid-isometric' : gridMode === 'swiss' ? 'bg-grid-pattern' : ''
     }`}>
-      {/* Custom Crosshair Cursor */}
       <CustomCursor cursorState={cursorState} />
-
-      {/* Boot Loading Sequence */}
       {!isLoaded && <BootLoader onComplete={() => setIsLoaded(true)} />}
-
-      {/* Main Experience Layout */}
       {isLoaded && (
         <>
-          {/* Top Swiss System HUD */}
           <SystemHUD
             setCursorState={setCursorState}
             activeSection={activeSection}
@@ -116,13 +110,19 @@ export default function App() {
           {/* Left Vertical Architectural Rail */}
           <aside className="fixed top-12 bottom-0 left-0 w-12 hidden lg:flex flex-col items-center justify-center border-r border-[#1A1A1A] bg-[#050505]/80 backdrop-blur-sm z-30 pointer-events-auto select-none">
             <div className="transform -rotate-90 whitespace-nowrap flex items-center space-x-4">
-              <span className="pixel-mono text-[#666]">FOLLOW SYSTEM</span>
+              <span className="pixel-mono text-[#666]">FOLLOW</span>
               <span className="pixel-mono text-[#F2F2F2] flex space-x-3">
-                <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-[#FF3B00] transition-colors">GITHUB</a>
+                <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-[#FF3B00] transition-colors">
+                  <SiGithub size={16} />
+                </a>
                 <span>—</span>
-                <a href="https://twitter.com" target="_blank" rel="noreferrer" className="hover:text-[#FF3B00] transition-colors">TWITTER</a>
+                <a href="https://twitter.com" target="_blank" rel="noreferrer" className="hover:text-[#FF3B00] transition-colors">
+                <SiX size={14}/>
+                </a>
                 <span>—</span>
-                <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="hover:text-[#FF3B00] transition-colors">LI</a>
+                <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="hover:text-[#FF3B00] transition-colors">
+                <FaLinkedinIn size={16} />
+                </a>
               </span>
             </div>
           </aside>
@@ -136,33 +136,13 @@ export default function App() {
 
             {/* SECTION 03: ABOUT / DIGITAL IDENTITY */}
             <DigitalIdentitySection setCursorState={setCursorState} />
-
-            {/* SECTION 04: INTERACTIVE 3D MATRIX GLOBE */}
-            <MatrixGlobeSection setCursorState={setCursorState} />
-
-            {/* SECTION 05: SKILLS AS AN INTERACTIVE SYSTEM */}
-            <SkillsSystemSection setCursorState={setCursorState} />
-
-            {/* SECTION 06: SELECTED WORK */}
-            <SelectedWorkSection setCursorState={setCursorState} />
-
-            {/* SECTION 07: HORIZONTAL PROJECT JOURNEY */}
-            <HorizontalJourneySection setCursorState={setCursorState} />
-
-            {/* SECTION 08: CREATIVE PLAYGROUND */}
-            <CreativePlaygroundSection setCursorState={setCursorState} />
-
-            {/* SECTION 09: DEVELOPMENT PHILOSOPHY */}
-            <PhilosophySection setCursorState={setCursorState} />
-
-            {/* SECTION 10: PROCESS SYSTEM */}
-            <ProcessSystemSection setCursorState={setCursorState} />
-
-            {/* SECTION 11: TECH STACK / DIGITAL TOOLBOX */}
+            <SkillsGlobePage />
+          <Philosophy />
+          <Work />
+            <Process />
             <DigitalToolboxSection setCursorState={setCursorState} />
-
-            {/* SECTION 12: JOURNEY TIMELINE + CONTACT + SINGULARITY */}
-            <ContactJourneySection setCursorState={setCursorState} />
+            <Now />
+            <Contact />
           </main>
         </>
       )}

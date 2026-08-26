@@ -1,177 +1,697 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
 import { sound } from '../utils/audio';
 import { CursorState } from '../types';
-import { Terminal, Cpu, HardDrive, CpuIcon, Command, Play, Sparkles } from 'lucide-react';
 
 interface DigitalToolboxProps {
   setCursorState: (state: CursorState) => void;
 }
 
-const TOOLBOX_MODULES = [
-  { name: 'NEXT.JS 15 APP ROUTER', type: 'CORE FRAMEWORK', status: 'ACTIVE', desc: 'Zero-waterfall streaming, server actions, dynamic edge middleware.' },
-  { name: 'THREE.JS / WEBGL 2.0', type: 'GRAPHICS ENGINE', status: 'ACCELERATED', desc: 'Hardware-accelerated geometry, instanced draw batches, post-processing.' },
-  { name: 'GLSL SHADERS (FRAG/VERT)', type: 'RENDER PIPELINE', status: 'COMPILED', desc: 'Custom procedural raymarching, fractional Brownian motion, voronoi noise.' },
-  { name: 'GSAP 3 + SCROLLTRIGGER', type: 'KINETIC ENGINE', status: '60 FPS', desc: 'Sub-pixel tweening, velocity-reactive skew, custom timeline scrubbing.' },
-  { name: 'LENIS SMOOTH SCROLL', type: 'PHYSICS SYSTEM', status: 'SYNCHRONIZED', desc: 'Momentum-preserved scrolling, zero layout thrashing, delta dampening.' },
-  { name: 'TAILWIND CSS 4.0', type: 'SWISS DESIGN SYSTEM', status: 'OPTIMIZED', desc: 'Strict dark optic tokens, 8pt modular grid, responsive typography hierarchy.' },
-  { name: 'WEB AUDIO API', type: 'PROCEDURAL SOUND', status: 'LOW LATENCY', desc: 'Direct algorithmic oscillator synthesis, dynamic biquad filters, zero MP3 assets.' },
-  { name: 'TYPESCRIPT 5.8', type: 'STRICT TYPE SYSTEM', status: 'VERIFIED', desc: '100% strictly typed codebase, zero any escape hatches, complete integrity.' },
+type HistoryLine = {
+  content: string;
+  type?:
+    | 'default'
+    | 'command'
+    | 'success'
+    | 'error'
+    | 'highlight'
+    | 'muted'
+    | 'system';
+};
+
+const AVAILABLE_COMMANDS = [
+  'help',
+  'whoami',
+  'skills',
+  'manifesto',
+  'contact',
+  'neofetch',
+  'clear',
 ];
 
-export const DigitalToolboxSection: React.FC<DigitalToolboxProps> = ({ setCursorState }) => {
+export const DigitalToolboxSection: React.FC<DigitalToolboxProps> = ({
+  setCursorState,
+}) => {
   const [terminalInput, setTerminalInput] = useState('');
-  const [terminalHistory, setTerminalHistory] = useState<string[]>([
-    'SAMARTH_PATIL OS [Version 2026.04.1]',
-    'Type "help" for a list of valid terminal commands.',
-    'System ready.'
+
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  const [terminalHistory, setTerminalHistory] = useState<HistoryLine[]>([
+    {
+      content: 'SAMARTH_PATIL OS [Version 2026.04.1]',
+      type: 'system',
+    },
+    {
+      content: 'Copyright (c) 2026 Samarth Patil.',
+      type: 'muted',
+    },
+    {
+      content: '',
+    },
+    {
+      content: 'Welcome to the interactive portfolio terminal.',
+      type: 'default',
+    },
+    {
+      content: 'Type "help" to see available commands.',
+      type: 'highlight',
+    },
+    {
+      content: '',
+    },
   ]);
 
-  const handleCommand = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cmd = terminalInput.trim().toLowerCase();
-    if (!cmd) return;
+  const terminalRef = useRef<HTMLDivElement>(null);
 
-    sound.playClick(1400);
-    const newHist = [...terminalHistory, `$ ${terminalInput}`];
+  const executeCommand = () => {
+    const rawCommand = terminalInput.trim();
+    const cmd = rawCommand.toLowerCase();
 
-    if (cmd === 'help') {
-      newHist.push('AVAILABLE COMMANDS:');
-      newHist.push('  whoami     - Print developer digital identity');
-      newHist.push('  skills     - List verified technical modules');
-      newHist.push('  manifesto  - Output core engineering creed');
-      newHist.push('  contact    - Retrieve direct transmission channels');
-      newHist.push('  neofetch   - Display system hardware & architecture specs');
-      newHist.push('  clear      - Reset terminal view');
-    } else if (cmd === 'whoami') {
-      newHist.push('SAMARTH PATIL // CREATIVE DEVELOPER & 3D DIGITAL ARCHITECT');
-      newHist.push('Location: 13.0844° N, 80.2707° E | Status: BUILDING');
-    } else if (cmd === 'skills') {
-      newHist.push('CORE: Next.js, React, TypeScript, Node.js');
-      newHist.push('GRAPHICS: Three.js, WebGL, GLSL, GSAP, Web Audio API');
-    } else if (cmd === 'manifesto') {
-      newHist.push("I DON'T JUST WRITE CODE. I BUILD DIGITAL EXPERIENCES.");
-    } else if (cmd === 'contact') {
-      newHist.push('EMAIL: samarth@samarthpatil.dev');
-      newHist.push('GITHUB: github.com/samarthpatil');
-      newHist.push('LINKEDIN: linkedin.com/in/samarthpatil');
-    } else if (cmd === 'neofetch') {
-      newHist.push('OS: SAMARTH_ARCHITECT_OS x86_64');
-      newHist.push('KERNEL: 6.12.0-creative-glsl');
-      newHist.push('UPTIME: 24/7/365 building');
-      newHist.push('WM: Swiss Grid 12-Col');
-      newHist.push('TERMINAL: WebGL Custom Shell');
-      newHist.push('GPU: Apple M-Series / NVIDIA RTX / WebGL 2.0');
-    } else if (cmd === 'clear') {
-      setTerminalHistory([]);
+    if (!cmd) {
+      setTerminalHistory((prev) => [
+        ...prev,
+        {
+          content: '',
+          type: 'default',
+        },
+      ]);
+
       setTerminalInput('');
       return;
-    } else {
-      newHist.push(`bash: command not found: ${cmd}. Type "help" for command index.`);
     }
 
-    setTerminalHistory(newHist);
+    sound.playClick(1400);
+
+    setCommandHistory((prev) => [...prev, rawCommand]);
+
+    setHistoryIndex(-1);
+
+    const newHistory: HistoryLine[] = [
+      ...terminalHistory,
+
+      {
+        content: `SAMARTH@PORTFOLIO:~$ ${rawCommand}`,
+        type: 'command',
+      },
+    ];
+
+    switch (cmd) {
+      case 'help':
+        newHistory.push(
+          {
+            content: '',
+          },
+          {
+            content: 'AVAILABLE COMMANDS',
+            type: 'highlight',
+          },
+          {
+            content: '────────────────────────────────────────────',
+            type: 'muted',
+          },
+          {
+            content: 'whoami',
+            type: 'success',
+          },
+          {
+            content: '  Print developer identity',
+            type: 'muted',
+          },
+          {
+            content: 'skills',
+            type: 'success',
+          },
+          {
+            content: '  List technical capabilities',
+            type: 'muted',
+          },
+          {
+            content: 'manifesto',
+            type: 'success',
+          },
+          {
+            content: '  Display engineering philosophy',
+            type: 'muted',
+          },
+          {
+            content: 'contact',
+            type: 'success',
+          },
+          {
+            content: '  Retrieve communication channels',
+            type: 'muted',
+          },
+          {
+            content: 'neofetch',
+            type: 'success',
+          },
+          {
+            content: '  Display system information',
+            type: 'muted',
+          },
+          {
+            content: 'clear',
+            type: 'success',
+          },
+          {
+            content: '  Clear terminal screen',
+            type: 'muted',
+          },
+          {
+            content: '',
+          },
+        );
+        break;
+
+      case 'whoami':
+        newHistory.push(
+          {
+            content: '',
+          },
+          {
+            content: 'SAMARTH PATIL',
+            type: 'highlight',
+          },
+          {
+            content: 'Creative Developer & 3D Digital Architect',
+            type: 'success',
+          },
+          {
+            content: '',
+          },
+          {
+            content: 'STATUS    → BUILDING',
+            type: 'default',
+          },
+          {
+            content: 'LOCATION  → 13.0844° N, 80.2707° E',
+            type: 'default',
+          },
+          {
+            content: 'MISSION   → BUILD DIGITAL EXPERIENCES',
+            type: 'default',
+          },
+          {
+            content: '',
+          },
+        );
+        break;
+
+      case 'skills':
+        newHistory.push(
+          {
+            content: '',
+          },
+          {
+            content: '[ CORE DEVELOPMENT ]',
+            type: 'highlight',
+          },
+          {
+            content:
+              'Next.js • React • TypeScript • Node.js',
+            type: 'default',
+          },
+          {
+            content: '',
+          },
+          {
+            content: '[ CREATIVE TECHNOLOGY ]',
+            type: 'highlight',
+          },
+          {
+            content:
+              'Three.js • WebGL • GLSL • GSAP',
+            type: 'default',
+          },
+          {
+            content:
+              'Web Audio API • Motion • Interactive Systems',
+            type: 'default',
+          },
+          {
+            content: '',
+          },
+        );
+        break;
+
+      case 'manifesto':
+        newHistory.push(
+          {
+            content: '',
+          },
+          {
+            content:
+              '"I DON’T JUST WRITE CODE. I BUILD DIGITAL EXPERIENCES."',
+            type: 'highlight',
+          },
+          {
+            content: '',
+          },
+        );
+        break;
+
+      case 'contact':
+        newHistory.push(
+          {
+            content: '',
+          },
+          {
+            content:
+              'EMAIL     → samarth@samarthpatil.dev',
+            type: 'success',
+          },
+          {
+            content:
+              'GITHUB    → github.com/samarthpatil',
+            type: 'success',
+          },
+          {
+            content:
+              'LINKEDIN  → linkedin.com/in/samarthpatil',
+            type: 'success',
+          },
+          {
+            content: '',
+          },
+        );
+        break;
+
+      case 'neofetch':
+        newHistory.push(
+          {
+            content: '',
+          },
+          {
+            content: '       ███████╗   SAMARTH_PATIL',
+            type: 'highlight',
+          },
+          {
+            content: '       ██╔════╝   ─────────────────────────',
+            type: 'highlight',
+          },
+          {
+            content: '       ███████╗   OS: ARCHITECT_OS x86_64',
+            type: 'default',
+          },
+          {
+            content: '       ╚════██║   Kernel: 6.12.0-creative',
+            type: 'default',
+          },
+          {
+            content: '       ███████║   Uptime: 24/7/365 building',
+            type: 'default',
+          },
+          {
+            content: '       ╚══════╝   WM: Swiss Grid 12-Col',
+            type: 'default',
+          },
+          {
+            content: '                  Shell: Custom WebGL Bash',
+            type: 'default',
+          },
+          {
+            content: '                  GPU: Creative Engine v2.0',
+            type: 'default',
+          },
+          {
+            content: '',
+          },
+        );
+        break;
+
+      case 'clear':
+        setTerminalHistory([]);
+        setTerminalInput('');
+        setHistoryIndex(-1);
+
+        requestAnimationFrame(() => {
+          terminalRef.current?.focus();
+        });
+
+        return;
+
+      default:
+        newHistory.push(
+          {
+            content: `bash: ${cmd}: command not found`,
+            type: 'error',
+          },
+          {
+            content:
+              'Type "help" to view the command index.',
+            type: 'muted',
+          },
+          {
+            content: '',
+          },
+        );
+        break;
+    }
+
+    setTerminalHistory(newHistory);
+
     setTerminalInput('');
+
+    requestAnimationFrame(() => {
+      terminalRef.current?.focus();
+    });
+  };
+
+  useEffect(() => {
+    const terminal = terminalRef.current;
+
+    if (!terminal) return;
+
+    terminal.scrollTo({
+      top: terminal.scrollHeight,
+      behavior: 'smooth',
+    });
+  }, [terminalHistory]);
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      executeCommand();
+      return;
+    }
+
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+
+      setTerminalInput((prev) => prev.slice(0, -1));
+
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+
+      if (!commandHistory.length) return;
+
+      const nextIndex =
+        historyIndex === -1
+          ? commandHistory.length - 1
+          : Math.max(0, historyIndex - 1);
+
+      setHistoryIndex(nextIndex);
+
+      setTerminalInput(commandHistory[nextIndex]);
+
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+
+      if (historyIndex === -1) return;
+
+      const nextIndex = historyIndex + 1;
+
+      if (nextIndex >= commandHistory.length) {
+        setHistoryIndex(-1);
+        setTerminalInput('');
+      } else {
+        setHistoryIndex(nextIndex);
+        setTerminalInput(commandHistory[nextIndex]);
+      }
+
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+
+      if (!terminalInput.trim()) return;
+
+      const matches = AVAILABLE_COMMANDS.filter((command) =>
+        command.startsWith(terminalInput.toLowerCase()),
+      );
+
+      if (matches.length === 1) {
+        setTerminalInput(matches[0]);
+      }
+
+      return;
+    }
+
+    if (
+      e.ctrlKey ||
+      e.metaKey ||
+      e.altKey ||
+      e.key.length !== 1
+    ) {
+      return;
+    }
+
+    setTerminalInput((prev) => prev + e.key);
+
+    setHistoryIndex(-1);
+  };
+
+  const getLineClassName = (type?: HistoryLine['type']) => {
+    switch (type) {
+      case 'command':
+        return 'text-[#FF3B00]';
+
+      case 'success':
+        return 'text-[#F2F2F2]';
+
+      case 'error':
+        return 'text-red-400';
+
+      case 'highlight':
+        return 'text-[#FF3B00] font-bold';
+
+      case 'muted':
+        return 'text-[#666666]';
+
+      case 'system':
+        return 'text-[#F2F2F2] font-bold';
+
+      default:
+        return 'text-[#9A9A9A]';
+    }
   };
 
   return (
     <section
       id="toolbox"
-      className="relative w-full min-h-screen bg-[#050505] text-[#F2F2F2] border-b border-[#1F1F1F] py-24 md:py-36 px-6 md:px-12 select-none"
+      className="relative w-full min-h-screen bg-[#050505] text-[#F2F2F2] border-b border-[#1F1F1F] py-12 md:py-20 px-4 md:px-12 select-none"
       onMouseEnter={() => setCursorState('EXPLORE')}
       onMouseLeave={() => setCursorState('DEFAULT')}
     >
-      <div className="max-w-7xl mx-auto space-y-12">
-        {/* Section Header */}
-        <div className="flex flex-wrap items-center justify-between border-b border-[#1F1F1F] pb-4 gap-4">
+      <div className="max-w-7xl mx-auto flex flex-col">
+
+        {/* SECTION HEADER */}
+
+        <div className="flex flex-wrap items-end justify-between border-b border-[#1F1F1F] pb-5 mb-6 gap-4">
+
           <div>
             <div className="font-silkscreen text-xs text-[#FF3B00] uppercase tracking-widest flex items-center space-x-2">
+
               <span className="w-2 h-2 bg-[#FF3B00]" />
-              <span>// SECTION 11: TECH STACK &amp; DIGITAL TOOLBOX OS</span>
+
+              <span>
+                // DIGITAL TOOLBOX OS
+              </span>
+
             </div>
-            <h2 className="font-display text-3xl md:text-5xl font-black tracking-tight text-[#F2F2F2] mt-1">
+
+            <h2 className="font-display text-3xl md:text-5xl font-black tracking-tight text-[#F2F2F2] mt-2">
+
               SYSTEM OPERATING ENVIRONMENT
+
             </h2>
           </div>
-          <div className="font-pixel text-xs text-[#666666]">
-            [ CLI COMMAND RUNNER + MODULE MATRIX ]
+
+          <div className="font-pixel text-[10px] text-[#555555]">
+
+            [ INTERACTIVE CLI // ONLINE ]
+
           </div>
+
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Interactive Terminal CLI Shell */}
-          <div className="lg:col-span-6 bg-[#0D0D0D] border-2 border-[#1F1F1F] p-6 font-pixel text-xs space-y-4">
-            {/* Terminal Titlebar */}
-            <div className="flex justify-between items-center border-b border-[#1F1F1F] pb-3 text-[#666]">
-              <div className="flex items-center space-x-2">
+
+        {/* TERMINAL */}
+
+        <div
+          className="
+            w-full
+            h-[calc(100vh-220px)]
+            min-h-[520px]
+            border
+            border-[#242424]
+            bg-[#030303]
+            flex
+            flex-col
+            shadow-2xl
+          "
+        >
+
+          {/* TERMINAL TITLEBAR */}
+
+          <div className="shrink-0 h-12 flex items-center justify-between border-b border-[#1F1F1F] px-4 md:px-5">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex items-center gap-1.5">
+
                 <span className="w-2.5 h-2.5 bg-[#FF3B00]" />
-                <span className="text-[#F2F2F2] font-bold">SAMARTH_PATIL_CLI // BASH</span>
+
+                <span className="w-2.5 h-2.5 bg-[#333333]" />
+
+                <span className="w-2.5 h-2.5 bg-[#333333]" />
+
               </div>
-              <span>UTF-8 // TTY1</span>
+
+              <span className="font-pixel text-[10px] text-[#EAEAEA]">
+
+                SAMARTH_PATIL_CLI — bash
+
+              </span>
+
             </div>
 
-            {/* Terminal Output */}
-            <div className="h-64 overflow-y-auto space-y-1 text-[#CCCCCC] bg-black p-4 border border-[#222] font-pixel text-[11px] leading-relaxed">
-              {terminalHistory.map((line, i) => (
+
+            <div className="flex items-center gap-3 font-pixel text-[9px]">
+
+              <span className="hidden sm:inline text-[#555555]">
+                UTF-8
+              </span>
+
+              <span className="hidden sm:inline text-[#555555]">
+                TTY1
+              </span>
+
+              <span className="text-[#FF3B00]">
+                ● ONLINE
+              </span>
+
+            </div>
+
+          </div>
+
+
+          {/* TERMINAL SCREEN */}
+
+          <div
+            ref={terminalRef}
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            onClick={() => terminalRef.current?.focus()}
+            className="
+              flex-1
+              min-h-0
+              overflow-y-auto
+              overflow-x-hidden
+              p-5
+              md:p-7
+              font-mono
+              text-xs
+              md:text-sm
+              leading-6
+              outline-none
+              cursor-text
+              terminal-scroll
+            "
+          >
+
+            {/* OUTPUT */}
+
+            <div className="space-y-0">
+
+              {terminalHistory.map((line, index) => (
                 <div
-                  key={i}
-                  className={
-                    line.startsWith('$')
-                      ? 'text-[#FF3B00] font-bold'
-                      : line.includes('SAMARTH')
-                      ? 'text-white font-bold'
-                      : 'text-[#888888]'
-                  }
+                  key={`${index}-${line.content}`}
+                  className={`
+                    min-h-[24px]
+                    whitespace-pre-wrap
+                    break-words
+                    ${getLineClassName(line.type)}
+                  `}
                 >
-                  {line}
+                  {line.content || '\u00A0'}
                 </div>
               ))}
+
             </div>
 
-            {/* Terminal Form Input */}
-            <form onSubmit={handleCommand} className="flex space-x-2 pt-2">
-              <span className="text-[#FF3B00] font-bold">&gt;</span>
-              <input
-                type="text"
-                value={terminalInput}
-                onChange={(e) => setTerminalInput(e.target.value)}
-                placeholder="type command (e.g. 'help', 'whoami', 'neofetch')..."
-                className="w-full bg-black border border-[#333] px-3 py-1.5 font-pixel text-xs text-[#F2F2F2] focus:outline-none focus:border-[#FF3B00]"
+
+            {/* ACTIVE COMMAND LINE */}
+
+            <div className="flex items-center min-h-[24px] whitespace-pre-wrap break-all">
+
+              <span className="text-[#FF3B00] font-bold">
+                SAMARTH
+              </span>
+
+              <span className="text-[#777777]">
+                @
+              </span>
+
+              <span className="text-[#F2F2F2]">
+                PORTFOLIO
+              </span>
+
+              <span className="text-[#777777]">
+                :
+              </span>
+
+              <span className="text-[#F2F2F2]">
+                ~
+              </span>
+
+              <span className="text-[#777777] mr-2">
+                $
+              </span>
+
+              <span className="text-[#F2F2F2]">
+                {terminalInput}
+              </span>
+
+              <span
+                className="terminal-cursor"
+                aria-hidden="true"
               />
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-[#FF3B00] text-black font-bold text-xs hover:bg-[#ff5522]"
-              >
-                [ RUN ]
-              </button>
-            </form>
+
+            </div>
+
           </div>
 
-          {/* Right Column: Hardware & Engine Modules */}
-          <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-3 font-pixel text-xs">
-            {TOOLBOX_MODULES.map((mod, idx) => (
-              <div
-                key={mod.name}
-                onMouseEnter={() => {
-                  setCursorState('INTERACT');
-                  sound.playTick(1200 + idx * 50);
-                }}
-                onMouseLeave={() => setCursorState('DEFAULT')}
-                className="bg-[#0D0D0D] border border-[#1F1F1F] hover:border-[#FF3B00] p-4 space-y-2 group transition-all"
-              >
-                <div className="flex justify-between items-start">
-                  <span className="text-[#666] text-[10px]">{mod.type}</span>
-                  <span className="text-[#FF3B00] text-[10px] font-bold">{mod.status}</span>
-                </div>
-                <h4 className="font-display font-black text-base text-[#F2F2F2] group-hover:text-white">
-                  {mod.name}
-                </h4>
-                <p className="text-[#777] text-[11px] leading-relaxed">
-                  {mod.desc}
-                </p>
-              </div>
-            ))}
+
+          {/* TERMINAL STATUS BAR */}
+
+          <div className="shrink-0 h-10 border-t border-[#1F1F1F] px-4 md:px-5 flex items-center justify-between font-pixel text-[9px] text-[#555555]">
+
+            <span>
+              CLICK TERMINAL TO FOCUS
+            </span>
+
+            <div className="hidden md:flex items-center gap-4">
+
+              <span>
+                ↑↓ HISTORY
+              </span>
+
+              <span>
+                TAB COMPLETE
+              </span>
+
+              <span className="text-[#FF3B00]">
+                ENTER EXECUTE
+              </span>
+
+            </div>
+
           </div>
+
         </div>
+
       </div>
     </section>
   );

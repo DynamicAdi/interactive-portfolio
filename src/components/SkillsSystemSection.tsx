@@ -30,7 +30,7 @@ export const SkillsSystemSection: React.FC<SkillsSystemProps> = ({ setCursorStat
           <div>
             <div className="font-silkscreen text-xs text-[#FF3B00] uppercase tracking-widest flex items-center space-x-2">
               <span className="w-2 h-2 bg-[#FF3B00]" />
-              <span>// SECTION 05: SKILLS AS AN INTERACTIVE SYSTEM</span>
+              <span>// SKILLS AS AN INTERACTIVE SYSTEM</span>
             </div>
             <h2 className="font-display text-3xl md:text-5xl font-black tracking-tight text-[#F2F2F2] mt-1">
               DIGITAL MODULE MATRIX
@@ -136,12 +136,6 @@ export const SkillsSystemSection: React.FC<SkillsSystemProps> = ({ setCursorStat
                 </p>
               </div>
 
-              <div>
-                <span className="text-[#666666] block">SYSTEM TEST COMMAND:</span>
-                <div className="bg-black border border-[#222] p-2.5 text-[#FF3B00] mt-1 font-pixel text-[11px] overflow-x-auto">
-                  $ {selectedSkill.command}
-                </div>
-              </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="bg-black/60 border border-[#1F1F1F] p-3">
@@ -156,8 +150,8 @@ export const SkillsSystemSection: React.FC<SkillsSystemProps> = ({ setCursorStat
             </div>
 
             <div className="pt-4 border-t border-[#1F1F1F] flex items-center justify-between text-[#666666]">
-              <span>STATUS: COMPILED &amp; ACTIVE</span>
-              <span className="text-[#FF3B00] font-bold">READY</span>
+              <span>STATUS:</span>
+              <span className="text-[#FF3B00] font-bold">READY TO WORK</span>
             </div>
           </div>
         </div>

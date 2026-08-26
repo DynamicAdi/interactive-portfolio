@@ -1,251 +1,290 @@
-import React, { useState } from 'react';
-import { PROJECTS } from '../data/portfolioData';
-import { Project, CursorState } from '../types';
-import { sound } from '../utils/audio';
-import { ArrowUpRight, Github, ExternalLink, Activity, Layers, Code, Sparkles, X } from 'lucide-react';
+import { useGsap } from "../lib/motion";
+import { Marker } from "./Marker";
 
-interface SelectedWorkProps {
-  setCursorState: (state: CursorState) => void;
+const PROJECTS = [
+  {
+    n: "01",
+    title: "VOID ENGINE",
+    cat: "WEBGL / REALTIME",
+    year: "2025",
+    tech: "THREE.JS · GLSL · REACT",
+    align: "left",
+  },
+  {
+    n: "02",
+    title: "FOIL PRESS",
+    cat: "EDITORIAL / MOTION",
+    year: "2025",
+    tech: "GSAP · LENIS · NEXT.JS",
+    align: "right",
+  },
+  {
+    n: "03",
+    title: "BLOCK OS",
+    cat: "INTERFACE SYSTEM",
+    year: "2024",
+    tech: "TYPESCRIPT · CANVAS",
+    align: "left",
+  },
+] as const;
+
+/**
+ * Deterministic pseudo-random float in [0,1) from an integer seed + salt.
+ * Same index always produces the same "personality," so a card's look
+ * never flickers between renders — and a 4th, 5th, Nth project added
+ * later just gets its own personality automatically, with no new code.
+ */
+function rand(seed: number, salt = 0) {
+  const x = Math.sin(seed * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
 }
 
-export const SelectedWorkSection: React.FC<SelectedWorkProps> = ({ setCursorState }) => {
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const [tilt, setTilt] = useState<{ [key: string]: { x: number; y: number } }>({});
+/**
+ * Which visual family a card gets. A card whose own category/stack reads
+ * as "code" (webgl, realtime, canvas, a system) gets the flip-matrix;
+ * anything without that signal falls back to a stable per-index seed,
+ * so new projects always resolve to *something* without new rules.
+ */
+function pickFamily(p: { cat: string; tech: string }, index: number): "matrix" | "lines" {
+  const signal = `${p.cat} ${p.tech}`.toLowerCase();
+  const codeLike = /(webgl|realtime|canvas|typescript|glsl|shader|system)/.test(signal);
+  if (codeLike) return "matrix";
+  return rand(index, 30) > 0.55 ? "matrix" : "lines";
+}
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, id: string) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 16;
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -16;
-    setTilt((prev) => ({ ...prev, [id]: { x, y } }));
-  };
+/**
+ * Family 1 — a field of rotated hairlines, parametrized per card via
+ * rand(index, salt): count, angle, drift direction, speed, spacing.
+ */
+function LineFieldVisual({ index }: { index: number }) {
+  const lineCount = 5 + Math.floor(rand(index, 1) * 4); // 5–8 lines
+  const baseAngle = -28 + rand(index, 2) * 56; // -28..28 deg
+  const dir = rand(index, 3) > 0.5 ? 1 : -1;
+  const speed = 0.7 + rand(index, 4) * 0.9; // 0.7–1.6x
+  const accentEven = rand(index, 5) > 0.5;
+  const spread = 0.7 + rand(index, 6) * 0.5; // 0.7–1.2, line spacing
 
-  const handleMouseLeave = (id: string) => {
-    setTilt((prev) => ({ ...prev, [id]: { x: 0, y: 0 } }));
-    setCursorState('DEFAULT');
-  };
-
-  const openProjectModal = (proj: Project) => {
-    sound.playGlitch();
-    setActiveProject(proj);
-  };
+  const lines = Array.from({ length: lineCount }, (_, i) => i);
 
   return (
-    <section
-      id="selected-work"
-      className="relative w-full min-h-screen bg-[#050505] text-[#F2F2F2] border-b border-[#1F1F1F] py-24 md:py-36 px-6 md:px-12 select-none"
-    >
-      <div className="max-w-7xl mx-auto space-y-16">
-        {/* Section Header */}
-        <div className="flex flex-wrap items-end justify-between border-b border-[#1F1F1F] pb-6 gap-4">
-          <div>
-            <div className="font-silkscreen text-xs text-[#FF3B00] uppercase tracking-widest flex items-center space-x-2">
-              <span className="w-2 h-2 bg-[#FF3B00]" />
-              <span>// SECTION 06: SELECTED ARCHITECTURAL WORKS</span>
-            </div>
-            <h2 className="font-display text-4xl sm:text-6xl md:text-7xl font-black tracking-tight text-[#F2F2F2] mt-2">
-              FEATURED <span className="text-[#FF3B00]">SYSTEMS</span>
-            </h2>
-          </div>
-          <div className="font-pixel text-xs text-[#666666] text-right">
-            <div>5 SELECTED PRODUCTION ARCHITECTURES</div>
-            <div className="text-[#FF3B00]">100% REALTIME SHADERS &amp; CODE</div>
-          </div>
-        </div>
-
-        {/* Project List / Cards with Layered Masked Compositions */}
-        <div className="space-y-24">
-          {PROJECTS.map((project, idx) => {
-            const currentTilt = tilt[project.id] || { x: 0, y: 0 };
-
+    <div className="wk-visual group absolute inset-0 overflow-hidden bg-background">
+      <svg className="h-full w-full" viewBox="0 0 100 125" preserveAspectRatio="none">
+        <g style={{ transform: `rotate(${baseAngle}deg)`, transformOrigin: "50% 50%" }}>
+          {lines.map((i) => {
+            const t = lines.length > 1 ? i / (lines.length - 1) : 0.5;
+            const y = 62.5 + (t - 0.5) * 125 * spread;
+            const isAccent = accentEven ? i % 2 === 0 : i % 2 === 1;
             return (
-              <div
-                key={project.id}
-                onMouseMove={(e) => handleMouseMove(e, project.id)}
-                onMouseEnter={() => {
-                  setCursorState('VIEW_PROJECT');
-                  sound.playTick(1000 + idx * 100);
-                }}
-                onMouseLeave={() => handleMouseLeave(project.id)}
-                className="group relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-[#090909] border border-[#1F1F1F] p-6 md:p-10 hover:border-[#FF3B00] transition-colors"
-                style={{
-                  perspective: '1000px',
-                }}
-              >
-                {/* Visual Image Container with 3D Tilt & Scanlines */}
-                <div
-                  className="lg:col-span-7 relative aspect-[16/10] overflow-hidden bg-black border border-[#222] transition-transform duration-200 ease-out cursor-pointer"
-                  style={{
-                    transform: `rotateY(${currentTilt.x}deg) rotateX(${currentTilt.y}deg) scale3d(1.02, 1.02, 1.02)`,
-                  }}
-                  onClick={() => openProjectModal(project)}
-                >
-                  <img
-                    src={project.image}
-                    alt={project.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover filter grayscale contrast-125 group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
-                  />
-                  <div className="absolute inset-0 scanlines opacity-40 pointer-events-none" />
-
-                  {/* Corner Index Tag */}
-                  <div className="absolute top-4 left-4 bg-black/90 border border-[#FF3B00] px-3 py-1 font-pixel text-xs text-[#FF3B00] backdrop-blur-sm">
-                    PRJ_NO: {project.number}
-                  </div>
-
-                  {/* Specs Pill */}
-                  <div className="absolute bottom-4 left-4 bg-black/90 border border-white/20 px-3 py-1 font-pixel text-[11px] text-[#F2F2F2] backdrop-blur-sm hidden sm:block">
-                    {project.specs.fps} // {project.specs.shaders}
-                  </div>
-
-                  <div className="absolute bottom-4 right-4 bg-[#FF3B00] text-black font-pixel font-bold text-xs px-3 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    [ CLICK TO INSPECT ]
-                  </div>
-                </div>
-
-                {/* Typography & Editorial Specs */}
-                <div className="lg:col-span-5 space-y-6">
-                  <div className="space-y-1">
-                    <div className="font-pixel text-xs text-[#FF3B00] tracking-wider uppercase">
-                      {project.category} // {project.year}
-                    </div>
-                    <h3
-                      onClick={() => openProjectModal(project)}
-                      className="font-display font-black text-3xl sm:text-4xl text-[#F2F2F2] group-hover:text-[#FF3B00] transition-colors cursor-pointer flex items-center justify-between"
-                    >
-                      <span>{project.title}</span>
-                      <ArrowUpRight className="w-6 h-6 text-[#FF3B00] group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                    </h3>
-                    <p className="font-pixel text-xs text-[#888888]">
-                      {project.tagline}
-                    </p>
-                  </div>
-
-                  <p className="font-sans text-sm md:text-base text-[#B0B0B0] leading-relaxed">
-                    {project.description}
-                  </p>
-
-                  {/* Metrics bullet tags */}
-                  <div className="space-y-1.5 font-pixel text-xs text-[#CCCCCC]">
-                    {project.metrics.map((m, i) => (
-                      <div key={i} className="flex items-center space-x-2">
-                        <span className="text-[#FF3B00]">&gt;</span>
-                        <span>{m}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Tech Stack Pills */}
-                  <div className="pt-4 border-t border-[#1F1F1F] flex flex-wrap gap-2">
-                    {project.techStack.map((tech) => (
-                      <span
-                        key={tech}
-                        className="bg-[#121212] border border-[#222] px-2.5 py-1 font-pixel text-xs text-[#888888] hover:text-[#F2F2F2] hover:border-[#444] transition-colors"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <line
+                key={i}
+                className={`wk-visual-line transition-opacity duration-500 group-hover:opacity-100 ${
+                  isAccent ? "text-primary opacity-90" : "text-muted-foreground opacity-30"
+                }`}
+                x1="-40"
+                x2="140"
+                y1={y}
+                y2={y}
+                stroke="currentColor"
+                strokeWidth={isAccent ? 0.6 : 0.3}
+                data-speed={speed * (i % 2 === 0 ? 1 : 0.65)}
+                data-dir={i % 2 === 0 ? dir : -dir}
+              />
             );
           })}
-        </div>
-      </div>
+        </g>
+      </svg>
+    </div>
+  );
+}
 
-      {/* Project Inspector Detail Modal */}
-      {activeProject && (
-        <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-10 select-none animate-fadeIn">
-          <div className="bg-[#0D0D0D] border-2 border-[#FF3B00] max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-10 font-pixel relative space-y-8 shadow-[0_0_50px_rgba(255,59,0,0.3)]">
-            {/* Modal Header */}
-            <div className="flex justify-between items-start border-b border-[#1F1F1F] pb-4">
-              <div>
-                <span className="text-[#FF3B00] text-xs uppercase tracking-widest">
-                  // DEEP ARCHITECTURE TELEMETRY — {activeProject.number}
-                </span>
-                <h2 className="text-2xl md:text-4xl font-display font-black text-[#F2F2F2] mt-1">
-                  {activeProject.title}
-                </h2>
-                <p className="text-xs text-[#888888]">{activeProject.category} | {activeProject.year}</p>
-              </div>
-              <button
-                onClick={() => setActiveProject(null)}
-                className="p-2 border border-[#333] hover:border-[#FF3B00] text-[#888888] hover:text-[#FF3B00] transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+/**
+ * Family 2 — a flip-dot box grid, like a split-flap display. At rest it's
+ * just a plain grid of boxes (color alternates black/white per card).
+ * On hover, every box flips at once (with a slight diagonal wave delay):
+ * the boxes that fall inside the numeral's pixel pattern land on white,
+ * everything else lands on orangered — so the number is formed by which
+ * boxes flip which way, not printed as text on top.
+ */
 
-            {/* Modal Image */}
-            <div className="relative aspect-video w-full overflow-hidden border border-[#222]">
-              <img
-                src={activeProject.image}
-                alt={activeProject.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
+// classic 5x7 dot-matrix digit font — "1" = lit pixel
+const DIGIT_FONT: Record<string, string[]> = {
+  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+  "3": ["11111", "00010", "00100", "00010", "00001", "10001", "01110"],
+  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+  "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
+  "6": ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
+};
+
+const GRID_COLS = 15;
+const GRID_ROWS = 19; // ~4:5, matches the card's aspect ratio
+
+function isDigitPixel(row: number, col: number, digits: string): boolean {
+  const digitW = 5;
+  const gap = 1;
+  const blockW = digits.length * digitW + (digits.length - 1) * gap;
+  const blockH = 7;
+  const startCol = Math.floor((GRID_COLS - blockW) / 2);
+  const startRow = Math.floor((GRID_ROWS - blockH) / 2);
+
+  const r = row - startRow;
+  if (r < 0 || r >= blockH) return false;
+
+  const cLocal = col - startCol;
+  if (cLocal < 0 || cLocal >= blockW) return false;
+
+  const digitIndex = Math.floor(cLocal / (digitW + gap));
+  const colInDigit = cLocal % (digitW + gap);
+  if (colInDigit >= digitW) return false; // the 1-col gap between digits
+
+  const glyph = DIGIT_FONT[digits[digitIndex]];
+  if (!glyph) return false;
+  return glyph[r][colInDigit] === "1";
+}
+
+function FlipMatrixVisual({ index, number }: { index: number; number: string }) {
+  const idleIsBlack = index % 2 === 0; // card 1: black boxes, card 2: white, card 3: black...
+
+  const boxes = Array.from({ length: GRID_ROWS * GRID_COLS }, (_, i) => {
+    const row = Math.floor(i / GRID_COLS);
+    const col = i % GRID_COLS;
+    return { row, col, lit: isDigitPixel(row, col, number) };
+  });
+
+  return (
+    <div className="wk-visual group absolute inset-0 overflow-hidden bg-black" style={{ perspective: "800px" }}>
+      <div
+        className="grid h-full w-full gap-[2px] p-[2px]"
+        style={{
+          gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+          gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+        }}
+      >
+        {boxes.map(({ row, col, lit }, i) => (
+          <div key={i} className="relative [transform-style:preserve-3d]">
+            <div
+              className="absolute inset-0 transition-transform duration-500 ease-out [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]"
+              style={{ transitionDelay: `${(row + col) * 6}ms` }}
+            >
+              {/* front face — idle state */}
+              <div
+                className={`absolute inset-0 [backface-visibility:hidden] ${
+                  idleIsBlack ? "border border-black bg-[#333333]" : "border border-black/10 bg-white"
+                }`}
               />
-              <div className="absolute inset-0 scanlines opacity-50 pointer-events-none" />
-            </div>
-
-            {/* Modal Specs Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-black border border-[#1F1F1F] p-3 text-xs">
-                <span className="text-[#666] block">FRAME BUDGET</span>
-                <span className="text-[#FF3B00] font-bold text-sm">{activeProject.specs.fps}</span>
-              </div>
-              <div className="bg-black border border-[#1F1F1F] p-3 text-xs">
-                <span className="text-[#666] block">SHADERS</span>
-                <span className="text-[#F2F2F2] font-bold text-sm">{activeProject.specs.shaders}</span>
-              </div>
-              <div className="bg-black border border-[#1F1F1F] p-3 text-xs">
-                <span className="text-[#666] block">DRAW CALLS</span>
-                <span className="text-[#F2F2F2] font-bold text-sm">{activeProject.specs.drawCalls}</span>
-              </div>
-              <div className="bg-black border border-[#1F1F1F] p-3 text-xs">
-                <span className="text-[#666] block">BUNDLE SIZE</span>
-                <span className="text-[#FF3B00] font-bold text-sm">{activeProject.specs.compression}</span>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-3 text-xs md:text-sm text-[#CCCCCC]">
-              <h4 className="text-[#FF3B00] font-bold uppercase">// SYSTEM OBJECTIVE &amp; EXECUTION:</h4>
-              <p className="leading-relaxed font-sans text-sm md:text-base text-[#B0B0B0]">
-                {activeProject.description}
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-wrap items-center justify-between pt-6 border-t border-[#1F1F1F] gap-4">
-              <div className="flex space-x-3">
-                <a
-                  href={activeProject.githubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-black border border-[#333] hover:border-[#FF3B00] text-xs text-[#F2F2F2] flex items-center space-x-2"
-                >
-                  <Github className="w-4 h-4 text-[#FF3B00]" />
-                  <span>[ REPOSITORY ]</span>
-                </a>
-                <a
-                  href={activeProject.liveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-[#FF3B00] text-black font-bold text-xs flex items-center space-x-2 hover:bg-[#ff5522]"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>[ LAUNCH LIVE PROTOCOL ]</span>
-                </a>
-              </div>
-              <button
-                onClick={() => setActiveProject(null)}
-                className="text-xs text-[#666] hover:text-[#FF3B00]"
-              >
-                [ ESC / CLOSE MODAL ]
-              </button>
+              {/* back face — hover state: white where the numeral lives, orangered elsewhere */}
+              <div
+                className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]"
+                style={{ background: lit ? "#ffffff" : "orangered" }}
+              />
             </div>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function Work() {
+  const ref = useGsap(({ gsap }) => {
+    gsap.utils.toArray<HTMLElement>(".wk-item").forEach((item) => {
+      const visual = item.querySelector(".wk-visual");
+      const lines = item.querySelectorAll<SVGLineElement>(".wk-visual-line");
+
+      // scroll-linked parallax on the whole visual block — applies to either family
+      gsap.fromTo(
+        visual,
+        { yPercent: -10 },
+        {
+          yPercent: 10,
+          ease: "none",
+          scrollTrigger: { trigger: item, start: "top bottom", end: "bottom top", scrub: true },
+        },
+      );
+
+      // ambient drift for the hairline family only (no-op for flip-matrix cards)
+      lines.forEach((line) => {
+        const lineSpeed = parseFloat(line.dataset.speed || "1");
+        const lineDir = parseFloat(line.dataset.dir || "1");
+        gsap.to(line, {
+          x: 8 * lineDir,
+          duration: 3.2 / lineSpeed,
+          ease: "sine.inOut",
+          repeat: -1,
+          yoyo: true,
+        });
+      });
+
+      gsap.from(visual, {
+        scale: 1.1,
+        opacity: 0,
+        duration: 1,
+        ease: "expo.out",
+        scrollTrigger: { trigger: item, start: "top 85%" },
+      });
+
+      gsap.from(item.querySelectorAll(".wk-reveal"), {
+        yPercent: 110,
+        duration: 1,
+        ease: "expo.out",
+        stagger: 0.08,
+        scrollTrigger: { trigger: item, start: "top 78%" },
+      });
+    });
+  });
+
+  return (
+    <section ref={ref} id="work" className="relative px-5 py-28 md:px-8 md:py-40">
+      <Marker index="05" title="SELECTED WORK" note="03 OF 12 ARCHIVED" />
+      <div className="space-y-28 md:space-y-44">
+        {PROJECTS.map((p, i) => {
+          return (
+            <article key={p.n} className="wk-item grid gap-6 md:grid-cols-12">
+              <div
+                className={`relative overflow-hidden edge md:col-span-5 ${
+                  p.align === "right" ? "md:order-2 md:col-start-8" : ""
+                }`}
+                data-cursor="VIEW PROJECT"
+              >
+                <div className="aspect-[4/5] overflow-hidden">
+                    <FlipMatrixVisual index={i} number={p.n} />
+                </div>
+                <span className={`mono absolute left-0 top-0 ${i % 2 === 0 ? "bg-white p-3.5" : "bg-black p-4"} text-[10px] text-primary`}>
+                  {p.n}
+                </span>
+              </div>
+
+              <div
+                className={`flex flex-col justify-end md:col-span-7 ${
+                  p.align === "right" ? "md:order-1 md:col-start-1" : ""
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <h3 className="wk-reveal text-[clamp(40px,7vw,96px)]">{p.title}</h3>
+                </div>
+                <div className="mt-5 space-y-2 border-t border-border pt-4">
+                  <div className="wk-reveal mono flex justify-between text-[10px] text-muted-foreground">
+                    <span>CATEGORY</span>
+                    <span className="text-foreground">{p.cat}</span>
+                  </div>
+                  <div className="wk-reveal mono flex justify-between text-[10px] text-muted-foreground">
+                    <span>YEAR</span>
+                    <span className="text-primary">{p.year}</span>
+                  </div>
+                  <div className="wk-reveal mono flex justify-between text-[10px] text-muted-foreground">
+                    <span>STACK</span>
+                    <span className="text-foreground">{p.tech}</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
-};
+}
